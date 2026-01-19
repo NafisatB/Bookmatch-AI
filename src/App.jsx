@@ -126,9 +126,7 @@ export default function App() {
           {state.error && (
             <p className="error">{state.error}</p>
           )}
-
-          <br />
-
+          
           {state.aiResponses.map((recommend, index) => (
             <details key={index}>
               <summary>Recommendation {index + 1}</summary>
