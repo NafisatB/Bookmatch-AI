@@ -41,9 +41,11 @@ function reducer(state, action) {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // update mood list when genre changes
+  // reset mood when genre changes
   useEffect(() => {
-    if (state.genre) dispatch({ type: "SET_MOOD", payload: "" });
+    if (state.genre) {
+      dispatch({ type: "SET_MOOD", payload: "" });
+    }
   }, [state.genre]);
 
   const fetchRecommendations = useCallback(async () => {
@@ -66,12 +68,29 @@ export default function App() {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error("Failed to fetch recommendations");
+      }
+
       const data = await response.json();
+      console.log("API RESPONSE:", data);
 
       if (data?.candidates?.length > 0) {
-        dispatch({ type: "ADD_RESPONSE", payload: data.candidates[0] });
+        const candidate = data.candidates[0];
+
+        // Extract text safely
+        const text =
+          candidate?.content?.[0]?.parts?.[0]?.text ||
+          candidate?.output ||
+          candidate?.text ||
+          "No recommendation available";
+
+        dispatch({ type: "ADD_RESPONSE", payload: text });
       } else {
-        dispatch({ type: "SET_ERROR", payload: "No recommendation available" });
+        dispatch({
+          type: "SET_ERROR",
+          payload: "No recommendation available",
+        });
       }
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
@@ -93,9 +112,7 @@ export default function App() {
             placeholder="Please select a genre"
             id="genre"
             options={listOfGenreOption}
-            onSelect={(val) =>
-              dispatch({ type: "SET_GENRE", payload: val })
-            }
+            onSelect={(val) => dispatch({ type: "SET_GENRE", payload: val })}
             value={state.genre}
           />
 
@@ -103,9 +120,7 @@ export default function App() {
             placeholder="Please select a mood"
             id="mood"
             options={listOfMoodOption[state.genre] || []}
-            onSelect={(val) =>
-              dispatch({ type: "SET_MOOD", payload: val })
-            }
+            onSelect={(val) => dispatch({ type: "SET_MOOD", payload: val })}
             value={state.mood}
           />
 
@@ -113,9 +128,7 @@ export default function App() {
             placeholder="Please select a level"
             id="level"
             options={["Beginner", "Intermediate", "Expert"]}
-            onSelect={(val) =>
-              dispatch({ type: "SET_LEVEL", payload: val })
-            }
+            onSelect={(val) => dispatch({ type: "SET_LEVEL", payload: val })}
             value={state.level}
           />
 
@@ -123,17 +136,12 @@ export default function App() {
             {state.isLoading ? "Loading..." : "Get Recommendation"}
           </button>
 
-          {state.error && (
-            <p className="error">{state.error}</p>
-          )}
-          
+          {state.error && <p className="error">{state.error}</p>}
+
           {state.aiResponses.map((recommend, index) => (
             <details key={index}>
               <summary>Recommendation {index + 1}</summary>
-              <p>
-                {recommend?.content?.[0]?.parts?.[0]?.text ||
-                  "No recommendation available"}
-              </p>
+              <p>{recommend}</p>
             </details>
           ))}
         </section>
