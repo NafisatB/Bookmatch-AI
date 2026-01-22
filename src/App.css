@@ -104,7 +104,9 @@ summary {
   color: #1f2937;
 }
 
-p {
+details > p {
+  width: 900px;
+  padding: 8px;
   margin-top: 8px;
   color: #4b5563;
   line-height: 1.6;

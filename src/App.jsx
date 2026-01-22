@@ -40,41 +40,63 @@ function reducer(state, action) {
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  function handleSelect(id, value) {
+    dispatch({
+      type:
+        id === "genre"
+          ? "SET_GENRE"
+          : id === "mood"
+            ? "SET_MOOD"
+            : id === "level"
+              ? "SET_LEVEL"
+              : null,
+      payload: value,
+    })
+  }
+
 
   // update mood list when genre changes
   useEffect(() => {
-    if (state.genre) dispatch({ type: "SET_MOOD", payload: "" });
+    dispatch({ type: "SET_MOOD", payload: "" });
   }, [state.genre]);
 
   const fetchRecommendations = useCallback(async () => {
-    if (!state.genre || !state.mood || !state.level) {
-      dispatch({ type: "SET_ERROR", payload: "Fill all fields" });
-      return;
-    }
-
+    if (!state.genre || !state.mood || !state.level)
+      return
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
 
     try {
-      const response = await fetch("/api/generate", {
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+      const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "x-goog-api-key": GEMINI_API_KEY,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          genre: state.genre,
-          mood: state.mood,
-          level: state.level,
+          contents: [{ parts: [{ text: `Recommend 6 books for a ${state.level} ${state.genre} reader feeling ${state.mood}. Explain why.` }] }]
         }),
       });
 
-      const data = await response.json();
-
-      if (data?.candidates?.length > 0) {
-        dispatch({ type: "ADD_RESPONSE", payload: data.candidates[0] });
-      } else {
-        dispatch({ type: "SET_ERROR", payload: "No recommendation available" });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || "Request failed");
       }
+
+      const data = await res.json();
+
+      const newRecommendation = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (newRecommendation) {
+        dispatch({
+          type: "ADD_RESPONSE",
+          payload: newRecommendation
+        })
+      }
+
     } catch (err) {
-      dispatch({ type: "SET_ERROR", payload: err.message });
+      dispatch({ type: "SET_ERROR", payload: "Failed to fetch recommendation" });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -93,9 +115,7 @@ export default function App() {
             placeholder="Please select a genre"
             id="genre"
             options={listOfGenreOption}
-            onSelect={(val) =>
-              dispatch({ type: "SET_GENRE", payload: val })
-            }
+            onSelect={(val) => handleSelect("genre", val)}
             value={state.genre}
           />
 
@@ -103,9 +123,7 @@ export default function App() {
             placeholder="Please select a mood"
             id="mood"
             options={listOfMoodOption[state.genre] || []}
-            onSelect={(val) =>
-              dispatch({ type: "SET_MOOD", payload: val })
-            }
+            onSelect={(val) => handleSelect("mood", val)}
             value={state.mood}
           />
 
@@ -113,9 +131,7 @@ export default function App() {
             placeholder="Please select a level"
             id="level"
             options={["Beginner", "Intermediate", "Expert"]}
-            onSelect={(val) =>
-              dispatch({ type: "SET_LEVEL", payload: val })
-            }
+            onSelect={(val) => handleSelect("level", val)}
             value={state.level}
           />
 
@@ -123,19 +139,19 @@ export default function App() {
             {state.isLoading ? "Loading..." : "Get Recommendation"}
           </button>
 
+
+
+          {state.aiResponses.map((recommend, index) => (
+            <details key={index} name="recommendation">
+              <summary>Recommendation {index + 1}</summary>
+              <p>{recommend}</p>
+            </details>
+
+          ))}
+
           {state.error && (
             <p className="error">{state.error}</p>
           )}
-          
-          {state.aiResponses.map((recommend, index) => (
-            <details key={index}>
-              <summary>Recommendation {index + 1}</summary>
-              <p>
-                {recommend?.content?.[0]?.parts?.[0]?.text ||
-                  "No recommendation available"}
-              </p>
-            </details>
-          ))}
         </section>
       </div>
     </div>
